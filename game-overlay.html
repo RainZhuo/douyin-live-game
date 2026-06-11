@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>抖音直播间互动猜谜游戏</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:'PingFang SC','Microsoft YaHei','Helvetica Neue',sans-serif;
+  background:linear-gradient(135deg,#0a0a1a 0%,#1a0a2e 40%,#0d0d2b 100%);
+  color:#e8e8f0;min-height:100vh;overflow-x:hidden;overflow-y:hidden;
+  display:flex;justify-content:center;align-items:flex-start;padding:6px;
+}
+.game-container{
+  width:100%;max-width:500px;display:flex;flex-direction:column;gap:5px;
+  position:relative;height:100vh;max-height:780px;
+}
+.game-body{
+  display:flex;flex-direction:row;gap:5px;flex:1;min-height:0;
+}
+.main-column{
+  flex:3;display:flex;flex-direction:column;gap:5px;min-width:0;
+  overflow:hidden;
+}
+.side-column{
+  flex:1;display:flex;flex-direction:column;min-width:0;
+  min-height:0;
+}
+
+/* HEADER */
+.header{
+  text-align:center;padding:8px 0 4px;
+  background:linear-gradient(135deg,rgba(254,44,85,0.15),rgba(123,47,247,0.15));
+  border-radius:12px;border:1px solid rgba(254,44,85,0.2);
+}
+.header h1{font-size:16px;font-weight:700;background:linear-gradient(90deg,#fe2c55,#25f4ee,#7b2ff7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.header .room-info{font-size:10px;color:rgba(255,255,255,0.4);margin-top:2px}
+
+/* CONNECTION BAR */
+.connection-bar{
+  display:flex;align-items:center;gap:6px;padding:5px 10px;
+  border-radius:10px;font-size:11px;justify-content:space-between;
+}
+.connection-bar .status-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.connection-bar .status-text{flex:1;color:rgba(255,255,255,0.4);font-size:10px}
+.connection-bar .room-id-input{
+  background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);
+  border-radius:6px;padding:3px 8px;color:#e8e8f0;font-size:11px;width:90px;outline:none;
+}
+.connection-bar .room-id-input:focus{border-color:rgba(37,244,238,0.3)}
+.connection-bar .connect-btn{
+  padding:3px 10px;border-radius:6px;border:none;cursor:pointer;
+  background:linear-gradient(135deg,#25f4ee,#7b2ff7);color:#fff;font-size:10px;font-weight:600;
+  transition:transform .15s;white-space:nowrap;
+}
+.connection-bar .connect-btn:hover{transform:scale(1.05)}
+.connection-bar .connect-btn:disabled{opacity:0.4;cursor:not-allowed;transform:none}
+.status-dot.offline{background:#666}
+.status-dot.online{background:#25f4ee;box-shadow:0 0 6px rgba(37,244,238,0.5)}
+.status-dot.error{background:#fe2c55;box-shadow:0 0 6px rgba(254,44,85,0.5)}
+.status-dot.connecting{background:#ffd700;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+
+/* QUESTION AREA */
+.question-area{
+  background:linear-gradient(135deg,rgba(18,18,40,0.95),rgba(30,10,60,0.95));
+  border-radius:12px;padding:12px 14px 10px;
+  border:1px solid rgba(254,44,85,0.15);
+  position:relative;overflow:hidden;
+}
+.question-area::before{
+  content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;
+  background:radial-gradient(circle at 30% 40%,rgba(254,44,85,0.06),transparent 60%);
+  pointer-events:none;
+}
+.question-meta{
+  display:flex;align-items:center;gap:8px;margin-bottom:6px;
+}
+.question-category{
+  display:inline-block;padding:2px 10px;border-radius:14px;font-size:11px;font-weight:600;
+  background:linear-gradient(135deg,#fe2c55,#d91a4a);color:#fff;
+}
+.question-diff{
+  font-size:10px;letter-spacing:1px;
+}
+.question-round{
+  font-size:10px;color:rgba(255,255,255,0.3);
+}
+.question-prompt{
+  font-size:22px;font-weight:700;letter-spacing:1px;
+  color:#fff;margin-bottom:2px;
+}
+.question-keywords{
+  font-size:15px;font-weight:300;letter-spacing:4px;
+  color:rgba(255,255,255,0.2);margin-bottom:8px;
+}
+.question-hint-text{font-size:11px;color:rgba(255,255,255,0.35);margin-bottom:6px}
+.timer-section{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.timer-text{font-size:11px;color:rgba(255,255,255,0.5);flex-shrink:0;width:44px;text-align:right}
+.timer-bar-wrap{flex:1;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden}
+.timer-bar{height:100%;width:100%;border-radius:2px;
+  background:linear-gradient(90deg,#25f4ee,#7b2ff7,#fe2c55);
+  transition:width 1s linear;
+}
+.last-answer{font-size:10px;color:rgba(255,255,255,0.25);padding:3px 8px;background:rgba(255,255,255,0.03);border-radius:6px;display:none}
+.last-answer span{color:#25f4ee;font-weight:600}
+
+/* HINT AREA */
+.hint-area{
+  background:rgba(18,18,40,0.9);border-radius:12px;padding:8px 12px;
+  border:1px solid rgba(123,47,247,0.12);
+}
+.gift-row{
+  display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;
+}
+.gift-btn{
+  display:flex;flex-direction:column;align-items:center;gap:1px;
+  padding:4px 8px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);
+  background:rgba(255,255,255,0.04);cursor:pointer;transition:all .2s;min-width:52px;
+}
+.gift-btn:hover{background:rgba(255,255,255,0.1);border-color:rgba(254,44,85,0.3);transform:translateY(-1px)}
+.gift-btn .gift-icon{font-size:16px}
+.gift-btn .gift-name{font-size:9px;color:rgba(255,255,255,0.6)}
+.gift-btn .gift-effect{font-size:8px;color:rgba(255,255,255,0.3)}
+.hint-display{
+  padding:6px 10px;border-radius:8px;background:rgba(123,47,247,0.1);border:1px solid rgba(123,47,247,0.15);
+  font-size:12px;min-height:28px;color:#c8b8f0;transition:all .3s;
+}
+.hint-display.active{border-color:#7b2ff7;background:rgba(123,47,247,0.15)}
+.hint-display .hint-label{color:rgba(255,255,255,0.3);font-size:10px;margin-right:4px}
+
+/* CHAT AREA */
+.chat-area{
+  background:rgba(18,18,40,0.9);border-radius:12px;padding:8px 12px;
+  border:1px solid rgba(37,244,238,0.08);flex:1;min-height:0;
+  display:flex;flex-direction:column;
+}
+.chat-area .chat-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.chat-area .chat-header span{font-size:11px;font-weight:600;color:rgba(255,255,255,0.5)}
+.chat-area .chat-header .player-count{font-size:10px;color:#25f4ee}
+.top-answers{
+  display:flex;flex-direction:column;gap:2px;margin-bottom:4px;min-height:0;
+}
+.top-answer-item{
+  display:flex;align-items:center;gap:6px;padding:3px 8px;border-radius:6px;
+  background:rgba(37,244,238,0.06);border:1px solid rgba(37,244,238,0.1);font-size:11px;
+}
+.top-answer-item .rank-badge{
+  width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:9px;font-weight:700;flex-shrink:0;
+}
+.rank-1{background:linear-gradient(135deg,#ffd700,#ff8c00);color:#fff}
+.rank-2{background:linear-gradient(135deg,#e0e0e0,#a0a0a0);color:#333}
+.rank-3{background:linear-gradient(135deg,#cd7f32,#a0522d);color:#fff}
+.top-answer-item .player-name{color:rgba(255,255,255,0.6);flex-shrink:0;max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.top-answer-item .player-answer{flex:1;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.top-answer-item .player-score{color:#25f4ee;font-weight:700;font-size:10px}
+.chat-messages{
+  flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:2px;min-height:0;
+  scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.1) transparent;
+}
+.chat-messages::-webkit-scrollbar{width:3px}
+.chat-messages::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:2px}
+.chat-msg{
+  display:flex;align-items:center;gap:4px;padding:2px 6px;border-radius:4px;
+  font-size:11px;animation:msgIn .2s ease;
+}
+.chat-msg .tag{
+  font-size:8px;padding:0 4px;border-radius:3px;flex-shrink:0;font-weight:600;
+}
+.chat-msg .tag.real{background:rgba(254,44,85,0.2);color:#fe2c55}
+.chat-msg .tag.sim{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.3)}
+.chat-msg .name{color:rgba(255,255,255,0.5);flex-shrink:0;max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chat-msg .text{flex:1;color:rgba(255,255,255,0.8);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chat-msg .pct{color:#fe2c55;font-weight:700;font-size:10px;flex-shrink:0}
+.chat-msg.correct .text{color:#25f4ee;font-weight:600}
+.chat-msg.correct .pct{color:#25f4ee}
+.chat-msg.correct .tag.real{background:rgba(37,244,238,0.2);color:#25f4ee}
+@keyframes msgIn{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:translateX(0)}}
+.no-chat{text-align:center;color:rgba(255,255,255,0.2);font-size:11px;padding:12px 0}
+
+/* LEADERBOARD */
+.leaderboard{
+  background:rgba(18,18,40,0.9);border-radius:12px;padding:8px 8px;
+  border:1px solid rgba(255,215,0,0.1);
+  flex:1;display:flex;flex-direction:column;overflow:hidden;
+}
+.lb-header{font-size:10px;font-weight:600;color:rgba(255,255,255,0.5);margin-bottom:4px;text-align:center}
+.lb-list{flex:1;display:flex;flex-direction:column;gap:2px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.1) transparent}
+.lb-item{
+  display:flex;align-items:center;gap:3px;padding:2px 4px;border-radius:4px;
+  background:rgba(255,255,255,0.03);font-size:9px;
+}
+.lb-rank{width:12px;text-align:center;font-weight:700;color:rgba(255,255,255,0.3);font-size:8px}
+.lb-rank.top3{font-size:10px}
+.lb-avatar{
+  width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:7px;font-weight:700;flex-shrink:0;position:relative;z-index:1;
+}
+.lb-avatar-wrap{
+  position:relative;width:20px;height:20px;display:flex;align-items:center;
+  justify-content:center;flex-shrink:0;
+}
+.lb-ring{position:absolute;top:0;left:0;width:100%;height:100%;transform:rotate(-90deg)}
+.lb-ring .ring-bg{fill:none;stroke:rgba(255,255,255,0.08);stroke-width:2}
+.lb-ring .ring-fg{fill:none;stroke-width:2;stroke-linecap:round;transition:stroke-dashoffset .5s}
+.lb-name{flex:1;color:rgba(255,255,255,0.7);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.lb-tier{font-size:7px;padding:1px 3px;border-radius:4px;flex-shrink:0}
+.lb-score{color:rgba(255,255,255,0.4);font-size:8px;flex-shrink:0}
+.lb-empty{text-align:center;color:rgba(255,255,255,0.2);font-size:10px;padding:12px 0}
+
+/* MODALS */
+.modal-overlay{
+  position:fixed;top:0;left:0;width:100%;height:100%;
+  background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);
+  display:flex;align-items:center;justify-content:center;z-index:1000;
+  opacity:0;pointer-events:none;transition:opacity .3s;
+}
+.modal-overlay.active{opacity:1;pointer-events:auto}
+.modal-box{
+  background:linear-gradient(135deg,#1a1a3a,#2a1040);
+  border-radius:16px;padding:20px 20px 16px;max-width:300px;width:85%;
+  text-align:center;border:1px solid rgba(254,44,85,0.2);
+  transform:scale(0.85) translateY(20px);transition:transform .4s cubic-bezier(.34,1.56,.64,1);
+}
+.modal-overlay.active .modal-box{transform:scale(1) translateY(0)}
+.modal-icon{font-size:36px;margin-bottom:4px}
+.modal-title{font-size:17px;font-weight:700;margin-bottom:4px}
+.modal-desc{font-size:13px;color:rgba(255,255,255,0.7);margin-bottom:10px;line-height:1.4}
+.modal-close{
+  padding:6px 22px;border-radius:16px;border:none;cursor:pointer;
+  background:linear-gradient(135deg,#fe2c55,#7b2ff7);color:#fff;font-size:13px;font-weight:600;
+  transition:transform .2s;
+}
+.modal-close:hover{transform:scale(1.05)}
+.modal-score{font-size:20px;font-weight:700;color:#25f4ee;margin:3px 0}
+.modal-tier{
+  display:inline-block;padding:3px 12px;border-radius:16px;font-size:12px;font-weight:600;
+  margin-top:3px;
+}
+
+/* CONTROLS */
+.controls{
+  display:flex;gap:6px;justify-content:center;padding:2px 0 4px;
+}
+.ctrl-btn{
+  padding:5px 16px;border-radius:14px;border:1px solid rgba(255,255,255,0.1);
+  background:rgba(255,255,255,0.05);color:#e8e8f0;font-size:11px;cursor:pointer;
+  transition:all .2s;
+}
+.ctrl-btn:hover{background:rgba(255,255,255,0.1)}
+.ctrl-btn.primary{
+  background:linear-gradient(135deg,#fe2c55,#7b2ff7);border:none;font-weight:600;
+}
+.ctrl-btn.primary:hover{transform:scale(1.03)}
+
+/* CONFETTI */
+@keyframes confetti{0%{opacity:1;transform:translateY(0) rotate(0deg) scale(1)}100%{opacity:0;transform:translateY(-100px) rotate(720deg) scale(0)}}
+.confetti-piece{
+  position:fixed;width:8px;height:8px;border-radius:2px;z-index:1001;
+  pointer-events:none;animation:confetti 1.5s ease forwards;
+}
+
+/* TOAST */
+.toast{
+  position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:999;
+  padding:10px 20px;border-radius:12px;font-size:13px;font-weight:500;
+  animation:toastIn .3s ease,toastOut .3s ease 2.7s forwards;
+}
+.toast.success{background:rgba(37,244,238,0.15);border:1px solid rgba(37,244,238,0.3);color:#25f4ee}
+.toast.error{background:rgba(254,44,85,0.15);border:1px solid rgba(254,44,85,0.3);color:#fe2c55}
+.toast.info{background:rgba(123,47,247,0.15);border:1px solid rgba(123,47,247,0.3);color:#c8b8f0}
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(-20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+@keyframes toastOut{from{opacity:1}to{opacity:0;transform:translateX(-50%) translateY(-20px)}}
+</style>
+</head>
+<body>
+
+<div class="game-container">
+
+  <div class="game-body">
+
+  <!-- 左侧主区域 -->
+  <div class="main-column">
+
+  <!-- HEADER -->
+  <div class="header">
+    <h1>🎯 猜猜猜 · 直播间互动</h1>
+    <div class="room-info">在线 · <span id="online-count">0</span> 人 ｜ 已答 <span id="total-answers">0</span> 题</div>
+  </div>
+
+  <!-- CONNECTION BAR -->
+  <div class="connection-bar" style="background:rgba(18,18,40,0.8);border-radius:12px;border:1px solid rgba(255,255,255,0.06)">
+    <span class="status-dot offline" id="status-dot"></span>
+    <span class="status-text" id="status-text">未连接</span>
+    <input class="room-id-input" id="room-id-input" placeholder="抖音直播间ID" value="">
+    <button class="connect-btn" id="connect-btn" onclick="connectToBridge()">连接</button>
+  </div>
+
+  <!-- 1. 出题区 -->
+  <div class="question-area">
+    <div class="question-meta">
+      <span class="question-category" id="q-category">历史人物</span>
+      <span class="question-diff" id="q-diff"></span>
+      <span class="question-round" id="q-round">#01</span>
+    </div>
+    <div class="question-prompt" id="q-prompt">猜一历史人物</div>
+    <div class="question-keywords" id="q-keywords">???</div>
+    <div class="question-hint-text">🎯 猜的越接近，接近度%越高</div>
+    <div class="timer-section">
+      <div class="timer-text" id="timer-text">⏱ 05:00</div>
+      <div class="timer-bar-wrap"><div class="timer-bar" id="timer-bar"></div></div>
+    </div>
+    <div class="last-answer" id="last-answer">上一题答案：<span></span></div>
+  </div>
+
+  <!-- 2. 提示区 -->
+  <div class="hint-area">
+    <div class="gift-row">
+      <div class="gift-btn" onclick="triggerGift('pop')">
+        <span class="gift-icon">📢</span>
+        <span class="gift-name">人气票</span>
+        <span class="gift-effect">字数提示</span>
+      </div>
+      <div class="gift-btn" onclick="triggerGift('beer')">
+        <span class="gift-icon">🍺</span>
+        <span class="gift-name">啤酒</span>
+        <span class="gift-effect">线索提示</span>
+      </div>
+      <div class="gift-btn" onclick="triggerGift('lollipop')">
+        <span class="gift-icon">🍭</span>
+        <span class="gift-name">棒棒糖</span>
+        <span class="gift-effect">首字提示</span>
+      </div>
+      <div class="gift-btn" onclick="triggerGift('bunny')">
+        <span class="gift-icon">🐰</span>
+        <span class="gift-name">比心兔兔</span>
+        <span class="gift-effect">跳过本题</span>
+      </div>
+    </div>
+    <div class="hint-display" id="hint-display"><span class="hint-label">💡</span> 等待触发提示...</div>
+  </div>
+
+  <!-- 3. 聊天区 -->
+  <div class="chat-area">
+    <div class="chat-header">
+      <span>💬 弹幕互动 <span id="real-tag" style="font-size:10px;color:#fe2c55;font-weight:400;display:none">[已接入]</span> <span style="font-size:9px;color:rgba(255,255,255,0.25);font-weight:400">接近度</span></span>
+      <span class="player-count" id="player-count">参与 0 人</span>
+    </div>
+    <div class="top-answers" id="top-answers"></div>
+    <div class="chat-messages" id="chat-messages">
+      <div class="no-chat">🎮 游戏已开始，等待玩家弹幕...</div>
+    </div>
+  </div>
+
+  </div>
+
+  <!-- 右侧排行榜列 -->
+  <div class="side-column">
+  <!-- 4. 排行榜 -->
+  <div class="leaderboard">
+    <div class="lb-header">🏆 经验排行</div>
+    <div class="lb-list" id="lb-list">
+      <div class="lb-empty">暂无玩家数据</div>
+    </div>
+  </div>
+  </div>
+
+  </div>
+
+  <!-- 5. 控制区（独立于两栏底部） -->
+  <div class="controls">
+    <button class="ctrl-btn" id="sim-toggle" onclick="toggleSimulation()">⏸ 暂停模拟</button>
+    <button class="ctrl-btn" id="voice-toggle" onclick="toggleVoice()">🔊 语音</button>
+    <button class="ctrl-btn primary" onclick="nextQuestion()">⏭ 下一题</button>
+  </div>
+
+</div>
+
+<!-- MODALS -->
+<div class="modal-overlay" id="modal-correct">
+  <div class="modal-box">
+    <div class="modal-icon">🎉</div>
+    <div class="modal-title" id="modal-correct-title">恭喜答对了！</div>
+    <div class="modal-desc" id="modal-correct-desc">玩家 小明 回答正确！</div>
+    <div class="modal-score" id="modal-correct-exp">+30 经验</div>
+    <div class="modal-tier" id="modal-correct-tier">🏅 黄金</div>
+    <div style="margin-top:12px"><button class="modal-close" onclick="closeModal('modal-correct')">太棒了！</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-gift">
+  <div class="modal-box">
+    <div class="modal-icon">🎁</div>
+    <div class="modal-title">感谢礼物！</div>
+    <div class="modal-desc" id="modal-gift-desc">感谢 小明 送出的 🍺 啤酒</div>
+    <div style="margin-top:8px;padding:10px;background:rgba(123,47,247,0.1);border-radius:10px;font-size:14px;color:#c8b8f0" id="modal-gift-hint">
+      提示：答案包含3个字
+    </div>
+    <div style="margin-top:12px"><button class="modal-close" onclick="closeModal('modal-gift')">收到！</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-timeout">
+  <div class="modal-box">
+    <div class="modal-icon">⏰</div>
+    <div class="modal-title">时间到！</div>
+    <div class="modal-desc" id="modal-timeout-desc">很遗憾没有人答对</div>
+    <div style="margin-top:8px;padding:10px;background:rgba(254,44,85,0.1);border-radius:10px;font-size:16px;font-weight:600;color:#fe2c55" id="modal-timeout-answer">
+      答案是：李白
+    </div>
+    <div style="margin-top:12px"><button class="modal-close" onclick="closeModal('modal-timeout')">下一题</button></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  WebSocket 桥接连接
+// ============================================================
+const WS_URL = 'ws://localhost:6789';
+let bridgeWs = null;
+let bridgeConnected = false;
+
+function connectToBridge(customUrl) {
+  const url = customUrl || WS_URL;
+  const btn = document.getElementById('connect-btn');
+  const dot = document.getElementById('status-dot');
+  const text = document.getElementById('status-text');
+
+  if (bridgeWs) {
+    try { bridgeWs.close(); } catch(e) {}
+  }
+
+  dot.className = 'status-dot connecting';
+  text.textContent = '正在连接...';
+  btn.disabled = true;
+  btn.textContent = '连接中';
+
+  try {
+    bridgeWs = new WebSocket(url);
+
+    bridgeWs.onopen = () => {
+      bridgeConnected = true;
+      dot.className = 'status-dot online';
+      text.textContent = '已接入抖音直播间';
+      btn.disabled = false;
+      btn.textContent = '已连接';
+      btn.style.background = 'linear-gradient(135deg,#25f4ee,#7b2ff7)';
+      document.getElementById('real-tag').style.display = 'inline';
+      showToast('✅ 已成功接入抖音直播间', 'success');
+    };
+
+    bridgeWs.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        handleBridgeMessage(data);
+      } catch(e) {
+        console.error('桥接消息解析失败:', e);
+      }
+    };
+
+    bridgeWs.onclose = () => {
+      bridgeConnected = false;
+      dot.className = 'status-dot offline';
+      text.textContent = '已断开连接';
+      btn.disabled = false;
+      btn.textContent = '重连';
+      btn.style.background = 'linear-gradient(135deg,#fe2c55,#7b2ff7)';
+      document.getElementById('real-tag').style.display = 'none';
+    };
+
+    bridgeWs.onerror = (err) => {
+      dot.className = 'status-dot error';
+      text.textContent = '连接失败';
+      btn.disabled = false;
+      btn.textContent = '重试';
+      showToast('❌ 无法连接到桥接服务，请确保服务已启动', 'error');
+    };
+  } catch(e) {
+    dot.className = 'status-dot error';
+    text.textContent = '连接失败: ' + e.message;
+    btn.disabled = false;
+    btn.textContent = '重试';
+  }
+}
+
+// 桥接消息处理
+function handleBridgeMessage(data) {
+  switch (data.type) {
+    case 'connected':
+      showToast('✅ 已连接桥接服务，房间ID: ' + (data.roomId || ''), 'success');
+      break;
+
+    case 'chat':
+      // 真实观众弹幕
+      if (data.name && data.text) {
+        (async () => { await playerAnswer(data.name, data.text, true); })();
+      }
+      break;
+
+    case 'gift':
+      // 真实观众礼物
+      if (data.name && data.giftName) {
+        handleRealGift(data.name, data.giftName, data.giftType);
+      }
+      break;
+
+    case 'enter':
+      // 观众进入直播间 - 更新在线人数
+      if (data.name) {
+        document.getElementById('online-count').textContent =
+          parseInt(document.getElementById('online-count').textContent) + 1;
+      }
+      break;
+
+    case 'online':
+      if (data.count !== undefined) {
+        document.getElementById('online-count').textContent = data.count;
+      }
+      break;
+
+    case 'like':
+      // 点赞 - 可以忽略或记录
+      break;
+  }
+}
+
+// ============================================================
+//  处理真实礼物
+// ============================================================
+function handleRealGift(name, giftName, giftType) {
+  if (!giftType) {
+    // 不匹配游戏礼物的，只显示通知
+    showToast(`🎁 ${name} 送出 ${giftName}`, 'info');
+    return;
+  }
+
+  // 触发对应提示
+  if(giftType==='bunny'){
+    showGiftModal(name,giftName,'已使用跳过本题！即将进入下一题');
+    speak(`${name} 使用了比心兔兔，跳过本题`);
+    setTimeout(()=>nextQuestion(),2000);
+    return;
+  }
+
+  if (!state.question) return;
+  const ans = state.question.answer;
+  let hint = '';
+
+  switch (giftType) {
+    case 'pop': {
+      if (state.giftsUsed.has('pop')) { hint = '字数已提示过：' + ans.length + '个字'; break; }
+      state.giftsUsed.add('pop');
+      hint = '答案包含 ' + ans.length + ' 个字';
+      break;
+    }
+    case 'beer': {
+      if (state.giftsUsed.has('beer')) { hint = '线索已提示过：' + state.question.clue; break; }
+      state.giftsUsed.add('beer');
+      hint = state.question.clue;
+      break;
+    }
+    case 'lollipop': {
+      if (state.giftsUsed.has('lollipop')) { hint = '首字已提示过：' + ans[0]; break; }
+      state.giftsUsed.add('lollipop');
+      hint = '答案以「' + ans[0] + '」开头';
+      break;
+    }
+  }
+
+  state.hints.push(hint);
+  const hintEl = document.getElementById('hint-display');
+  hintEl.innerHTML = '<span class="hint-label">💡</span> ' + hint;
+  hintEl.classList.add('active');
+
+  showGiftModal(name, giftName, hint);
+}
+
+// ============================================================
+//  QUESTION BANK
+// ============================================================
+const QUESTION_BANK = [
+  // ★☆☆ 简单（1-2字，大众常识）
+  {answer:'李白',category:'历史人物',clue:'唐代著名浪漫主义诗人，被称为"诗仙"',diff:1},
+  {answer:'杜甫',category:'历史人物',clue:'唐代现实主义诗人，被称为"诗圣"',diff:1},
+  {answer:'北京',category:'中国城市',clue:'中国的首都，有故宫和长城',diff:1},
+  {answer:'上海',category:'中国城市',clue:'东方明珠，国际金融中心',diff:1},
+  {answer:'成都',category:'中国城市',clue:'火锅之都，有大熊猫基地',diff:1},
+  {answer:'火锅',category:'中华美食',clue:'围炉而坐，涮煮各种食材',diff:1},
+  {answer:'烧烤',category:'中华美食',clue:'炭火烤制，撒上孜然辣椒',diff:1},
+  {answer:'奶茶',category:'饮品',clue:'珍珠椰果，年轻人最爱',diff:1},
+  {answer:'熊猫',category:'动物',clue:'国宝，黑白色，爱吃竹子',diff:1},
+  {answer:'企鹅',category:'动物',clue:'不会飞但会游泳的南极居民',diff:1},
+  {answer:'饺子',category:'中华美食',clue:'北方过年必吃，馅料丰富',diff:1},
+  {answer:'功夫',category:'华语电影',clue:'周星驰经典，包租婆元秋',diff:1},
+  {answer:'原神',category:'热门游戏',clue:'开放世界二次元冒险游戏',diff:1},
+  {answer:'吃鸡',category:'热门游戏',clue:'绝地求生，百人竞技',diff:1},
+  {answer:'十年',category:'经典歌曲',clue:'陈奕迅，十年之前我不认识你',diff:1},
+  {answer:'斗地主',category:'棋牌游戏',clue:'三人扑克，农民斗地主',diff:1},
+  {answer:'哪吒',category:'国漫电影',clue:'我命由我不由天',diff:1},
+  {answer:'青花瓷',category:'周杰伦歌曲',clue:'天青色等烟雨',diff:1},
+  {answer:'七里香',category:'周杰伦歌曲',clue:'雨下整夜我的爱溢出就像雨水',diff:1},
+  {answer:'夜曲',category:'周杰伦歌曲',clue:'一群嗜血的蚂蚁被腐肉所吸引',diff:1},
+  {answer:'稻香',category:'周杰伦歌曲',clue:'还记得你说家是唯一的城堡',diff:1},
+  {answer:'孙悟空',category:'神话人物',clue:'齐天大圣，会七十二变',diff:1},
+
+  // ★★☆ 中等（2-3字，需一定知识）
+  {answer:'诸葛亮',category:'历史人物',clue:'三国时期蜀汉丞相，以智谋著称',diff:2},
+  {answer:'曹操',category:'历史人物',clue:'东汉末年政治家、军事家，魏武帝',diff:2},
+  {answer:'武则天',category:'历史人物',clue:'中国历史上唯一的女皇帝',diff:2},
+  {answer:'秦始皇',category:'历史人物',clue:'统一六国的第一位皇帝',diff:2},
+  {answer:'项羽',category:'历史人物',clue:'西楚霸王，力拔山兮气盖世',diff:2},
+  {answer:'白素贞',category:'神话人物',clue:'千年蛇精，与许仙相爱',diff:2},
+  {answer:'花木兰',category:'历史人物',clue:'代父从军的女英雄',diff:2},
+  {answer:'重庆',category:'中国城市',clue:'山城，以火锅和洪崖洞闻名',diff:2},
+  {answer:'西安',category:'中国城市',clue:'十三朝古都，有兵马俑',diff:2},
+  {answer:'杭州',category:'中国城市',clue:'上有天堂下有苏杭，西湖所在地',diff:2},
+  {answer:'南京',category:'中国城市',clue:'六朝古都，有秦淮河',diff:2},
+  {answer:'大理',category:'中国城市',clue:'风花雪月，苍山洱海',diff:2},
+  {answer:'洛阳',category:'中国城市',clue:'九朝古都，以牡丹花闻名',diff:2},
+  {answer:'哈尔滨',category:'中国城市',clue:'冰城，以冰雪大世界闻名',diff:2},
+  {answer:'冰淇淋',category:'甜品',clue:'夏日消暑，口味多样',diff:2},
+  {answer:'小龙虾',category:'中华美食',clue:'夏天夜市之王，麻辣鲜美',diff:2},
+  {answer:'臭豆腐',category:'街头小吃',clue:'闻着臭吃着香的长沙特色',diff:2},
+  {answer:'寿司',category:'日式美食',clue:'醋饭配生鱼片，日式经典',diff:2},
+  {answer:'长颈鹿',category:'动物',clue:'脖子最长的动物',diff:2},
+  {answer:'北极熊',category:'动物',clue:'生活在北极的白色巨兽',diff:2},
+  {answer:'孔雀',category:'动物',clue:'开屏时五彩斑斓的鸟类',diff:2},
+  {answer:'锦鲤',category:'动物',clue:'寓意好运的观赏鱼',diff:2},
+  {answer:'梅花鹿',category:'动物',clue:'身上有斑点，鹿茸珍贵',diff:2},
+  {answer:'霸王别姬',category:'华语电影',clue:'张国荣主演，京剧题材经典',diff:2},
+  {answer:'无间道',category:'华语电影',clue:'刘德华梁朝伟，卧底经典',diff:2},
+  {answer:'王者荣耀',category:'热门游戏',clue:'5v5 MOBA手游，腾讯出品',diff:2},
+  {answer:'海阔天空',category:'经典歌曲',clue:'Beyond，原谅我这一生不羁放纵爱自由',diff:2},
+
+  // ★★★ 困难（3-5字，成语/冷门/长答案）
+  {answer:'画蛇添足',category:'成语',clue:'多此一举，做了多余的事',diff:3},
+  {answer:'守株待兔',category:'成语',clue:'不劳而获，等待机会',diff:3},
+  {answer:'掩耳盗铃',category:'成语',clue:'自欺欺人，骗不了别人',diff:3},
+  {answer:'亡羊补牢',category:'成语',clue:'为时未晚，及时补救',diff:3},
+  {answer:'井底之蛙',category:'成语',clue:'见识狭窄的人',diff:3},
+  {answer:'对牛弹琴',category:'成语',clue:'说话不看对象',diff:3},
+  {answer:'刻舟求剑',category:'成语',clue:'墨守成规，不知道变通',diff:3},
+];
+
+// ============================================================
+//  TIER SYSTEM
+// ============================================================
+const TIERS = [
+  {name:'黑铁',minExp:0,color:'#8c8c8c',bg:'rgba(140,140,140,0.2)'},
+  {name:'白银',minExp:100,color:'#c0c0c0',bg:'rgba(192,192,192,0.2)'},
+  {name:'黄金',minExp:300,color:'#ffd700',bg:'rgba(255,215,0,0.2)'},
+  {name:'铂金',minExp:600,color:'#e5e4e2',bg:'rgba(229,228,226,0.2)'},
+  {name:'钻石',minExp:1000,color:'#b9f2ff',bg:'rgba(185,242,255,0.2)'},
+  {name:'大师',minExp:1600,color:'#ff6b35',bg:'rgba(255,107,53,0.2)'},
+  {name:'王者',minExp:2400,color:'#e81010',bg:'rgba(232,16,16,0.2)'},
+  {name:'最强王者',minExp:3500,color:'#fe2c55',bg:'rgba(254,44,85,0.2)'},
+];
+function getTier(exp){
+  let t=TIERS[0];for(const t2 of TIERS){if(exp>=t2.minExp)t=t2}return t;
+}
+// 难度对应基础经验（简单10/中等25/困难40）
+const diffBase = {1:10, 2:25, 3:40};
+// 距离下一段位的进度（百分比）
+function getTierProgress(exp){
+  const t=getTier(exp);const idx=TIERS.indexOf(t);
+  if(idx>=TIERS.length-1)return 100;
+  const n=TIERS[idx+1];return Math.min(100,Math.max(0,Math.round((exp-t.minExp)/(n.minExp-t.minExp)*100)));
+}
+
+// ============================================================
+//  GAME STATE
+// ============================================================
+const state = {
+  question: null,
+  questionIndex: 0,
+  timeLeft: 300,
+  maxTime: 300,
+  timer: null,
+  simulationTimer: null,
+  isRunning: false,
+  isPaused: false,
+  players: {},
+  messages: [],
+  topAnswers: [],
+  giftsUsed: new Set(),
+  hints: [],
+  answerCount: 0,
+};
+
+const FAKE_NAMES = [
+  '小明','小红','阿花','老王','老张','小美','阿杰','玲玲','大壮','小燕子',
+  '阿强','翠花','铁柱','二狗','小芳','大毛','阿牛','小胖','甜甜','酷哥',
+  '萌萌','乐乐','天天','星星','月亮','阳光','清风','流云','小C','大白',
+  '小可爱','粉丝一号','好运来','发财手','锦鲤附体','福星','小幸运',
+];
+
+const FAKE_ANSWERS_POOL = [
+  '李白','杜甫','白居易','李商隐','杜牧','王维','孟浩然','岑参',
+  '诸葛亮','司马懿','周瑜','庞统','郭嘉','赵云','关羽','张飞',
+  '北京','南京','东京','西京','上海','深圳','广州','杭州',
+  '火锅','麻辣烫','串串','冒菜','关东煮','烧烤','烤肉',
+  '熊猫','考拉','浣熊','棕熊','北极熊','大熊猫','小熊猫',
+  '茶','奶茶','果茶','咖啡','可乐','雪碧','果汁',
+  '孙悟空','猪八戒','沙和尚','唐僧','白龙马','哪吒','红孩儿',
+  '饺子','馄饨','包子','馒头','面条','米粉','米线',
+  '企鹅','海豹','海狮','海象','北极熊',
+  '十年','十年一刻','十一年','十二','一千年以后',
+  '花','花火','烟花','火花','雪花','花雨',
+  '王者','青铜','白银','黄金','钻石','大师','王者',
+  '龙','恐龙','翼龙','鱼龙','暴龙','霸王龙',
+  '苹果','香蕉','西瓜','草莓','蓝莓','芒果','橙子',
+  '猫','狗','兔子','老鼠','仓鼠','龙猫','松鼠',
+  '太阳','月亮','星星','地球','火星','木星','土星',
+  '红','黄','蓝','绿','紫','橙','粉','黑','白',
+  '一','二','三','四','五','六','七','八','九','十',
+  '大','小','多','少','长','短','高','低','远','近',
+  '风','云','雨','雪','雷','电','雾','霜','冰','水',
+];
+
+// ============================================================
+//  SIMILARITY - Jaro-Winkler based composite for short Chinese text
+// ============================================================
+function jaroWinkler(s1, s2) {
+  const l1 = s1.length, l2 = s2.length;
+  if (l1 === 0 || l2 === 0) return 0;
+  if (s1 === s2) return 1;
+
+  const matchDist = Math.floor(Math.max(l1, l2) / 2) - 1;
+  const m1 = new Array(l1).fill(false);
+  const m2 = new Array(l2).fill(false);
+
+  let matches = 0;
+  for (let i = 0; i < l1; i++) {
+    const start = Math.max(0, i - matchDist);
+    const end = Math.min(i + matchDist + 1, l2);
+    for (let j = start; j < end; j++) {
+      if (m2[j]) continue;
+      if (s1[i] !== s2[j]) continue;
+      m1[i] = true; m2[j] = true;
+      matches++;
+      break;
+    }
+  }
+  if (matches === 0) return 0;
+
+  let k = 0, trans = 0;
+  for (let i = 0; i < l1; i++) {
+    if (!m1[i]) continue;
+    while (!m2[k]) k++;
+    if (s1[i] !== s2[k]) trans++;
+    k++;
+  }
+
+  const jaro = (matches / l1 + matches / l2 + (matches - trans / 2) / matches) / 3;
+  // Winkler prefix bonus (max 4 chars)
+  let prefix = 0;
+  const maxP = Math.min(4, l1, l2);
+  for (let i = 0; i < maxP; i++) { if (s1[i] === s2[i]) prefix++; else break; }
+  return jaro + prefix * 0.1 * (1 - jaro);
+}
+
+function charSimilarity(input, answer) {
+  const a = input.trim(), b = answer.trim();
+  if (!a || !b) return 0;
+  if (a === b) return 100;
+
+  // 1. Jaro-Winkler (35%) - handles short strings, prefix bonus
+  const jw = jaroWinkler(a, b);
+
+  // 2. Position match (25%) - characters in exact position
+  const minLen = Math.min(a.length, b.length);
+  let posMatch = 0;
+  for (let i = 0; i < minLen; i++) if (a[i] === b[i]) posMatch++;
+  const posSim = posMatch / Math.max(a.length, b.length);
+
+  // 3. Character set Jaccard (20%) - which characters overlap
+  const setA = new Set(a), setB = new Set(b);
+  let inter = 0; for (const c of setA) if (setB.has(c)) inter++;
+  const union = new Set([...setA, ...setB]).size;
+  const jaccard = union > 0 ? inter / union : 0;
+
+  // 4. Dice coefficient on bigrams (20%) - character ordering
+  const biA = new Set(); for (let i = 0; i < a.length - 1; i++) biA.add(a.slice(i, i + 2));
+  const biB = new Set(); for (let i = 0; i < b.length - 1; i++) biB.add(b.slice(i, i + 2));
+  let biInter = 0; for (const bg of biA) if (biB.has(bg)) biInter++;
+  const dice = (biA.size + biB.size) > 0 ? (2 * biInter) / (biA.size + biB.size) : 0;
+
+  // Weighted combination - tuned for short Chinese text (1-5 chars)
+  let score = jw * 0.35 + posSim * 0.25 + jaccard * 0.20 + dice * 0.20;
+  score = Math.round(score * 100);
+
+  // Sympathy floor: if guess shares at least one character, minimum 5%
+  if (inter > 0 && score < 5) score = 5;
+  // Ceiling: below 100 unless exact match
+  if (score >= 100) score = 99;
+
+  return Math.min(99, Math.max(0, score));
+}
+
+// ============================================================
+//  PICK QUESTION
+// ============================================================
+function pickQuestion(){
+  const idx = state.questionIndex % QUESTION_BANK.length;
+  state.questionIndex++;
+  const q = {...QUESTION_BANK[idx]};
+  if(state.questionIndex%QUESTION_BANK.length===0){
+    for(let i=QUESTION_BANK.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [QUESTION_BANK[i],QUESTION_BANK[j]]=[QUESTION_BANK[j],QUESTION_BANK[i]];
+    }
+  }
+  state.question = q;
+  state.timeLeft = state.maxTime;
+  state.messages = [];
+  state.topAnswers = [];
+  state.giftsUsed = new Set();
+  state.hints = [];
+  // 预缓存答案语义嵌入（静默预热）
+  if (bridgeConnected) {
+    fetch('/similarity', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ guess: q.answer, answer: q.answer })
+    }).catch(()=>{});
+  }
+  return q;
+}
+
+// ============================================================
+//  UI
+// ============================================================
+function updateQuestionUI(){
+  const q=state.question;
+  if(!q)return;
+  document.getElementById('q-category').textContent=q.category;
+  document.getElementById('q-diff').textContent='★'.repeat(q.diff||1)+'☆'.repeat(3-(q.diff||1));
+  document.getElementById('q-prompt').textContent=`猜一${q.category}`;
+  document.getElementById('q-round').textContent=`#${String(state.answerCount+1).padStart(2,'0')}`;
+  document.getElementById('q-keywords').textContent='???';
+  document.getElementById('hint-display').innerHTML='<span class="hint-label">💡</span> 等待触发提示...';
+  document.getElementById('hint-display').classList.remove('active');
+  document.getElementById('timer-text').textContent=`⏱ ${formatTime(state.timeLeft)}`;
+  const pct=(state.timeLeft/state.maxTime)*100;
+  document.getElementById('timer-bar').style.width=pct+'%';
+}
+
+function formatTime(s){
+  const m=Math.floor(s/60);const sec=s%60;
+  return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+
+function updateLastAnswer(answer){
+  const el=document.getElementById('last-answer');
+  el.style.display='block';
+  el.querySelector('span').textContent=answer;
+}
+
+function updateTimerUI(){
+  document.getElementById('timer-text').textContent=`⏱ ${formatTime(state.timeLeft)}`;
+  const pct=(state.timeLeft/state.maxTime)*100;
+  const bar=document.getElementById('timer-bar');
+  bar.style.width=pct+'%';
+  if(state.timeLeft<=30) bar.style.background='linear-gradient(90deg,#ff4444,#fe2c55)';
+  else if(state.timeLeft<=60) bar.style.background='linear-gradient(90deg,#ff8c00,#fe2c55)';
+  else bar.style.background='linear-gradient(90deg,#25f4ee,#7b2ff7,#fe2c55)';
+}
+
+function addChatMessage(name, text, pct, isCorrect, isReal){
+  const el=document.getElementById('chat-messages');
+  const noChat=el.querySelector('.no-chat');
+  if(noChat) noChat.remove();
+  const div=document.createElement('div');
+  div.className='chat-msg'+(isCorrect?' correct':'');
+  div.innerHTML=`
+    <span class="tag ${isReal?'real':'sim'}">${isReal?'直播':'模拟'}</span>
+    <span class="name">${escHtml(name)}</span>
+    <span class="text">${escHtml(text)}</span>
+    <span class="pct">「${pct}%」</span>
+  `;
+  el.appendChild(div);
+  el.scrollTop=el.scrollHeight;
+  while(el.children.length>60) el.removeChild(el.firstChild);
+}
+
+function updateTopAnswers(){
+  const el=document.getElementById('top-answers');
+  if(state.topAnswers.length===0){el.innerHTML='';return;}
+  const medals=['🥇','🥈','🥉'];
+  el.innerHTML=state.topAnswers.slice(0,3).map((a,i)=>`
+    <div class="top-answer-item">
+      <div class="rank-badge rank-${i+1}">${medals[i]}</div>
+      <span class="player-name">${escHtml(a.name)}</span>
+      <span class="player-answer">${escHtml(a.text)}</span>
+      <span class="player-score">「${a.pct}%」</span>
+    </div>
+  `).join('');
+}
+
+function updateLeaderboard(){
+  const el=document.getElementById('lb-list');
+  const sorted=Object.entries(state.players).sort((a,b)=>b[1].exp-a[1].exp);
+  if(sorted.length===0){
+    el.innerHTML='<div class="lb-empty">暂无玩家数据</div>';
+    return;
+  }
+  const medals=['🥇','🥈','🥉'];
+  const R=8, circ=2*Math.PI*R;
+  el.innerHTML=sorted.slice(0,50).map(([name,p],i)=>{
+    const tier=getTier(p.exp);
+    const progress=getTierProgress(p.exp);
+    const avatarColor=hueFromName(name);
+    const offset=circ*(1-progress/100);
+    // 段位前缀
+    const tierPrefixes=['','','','','','','👑','👑'];
+    const prefix=tierPrefixes[TIERS.indexOf(tier)]||'';
+    return `
+      <div class="lb-item">
+        <div class="lb-rank${i<3?' top3':''}">${medals[i]||(i+1)}</div>
+        <div class="lb-avatar-wrap">
+          <svg class="lb-ring" viewBox="0 0 24 24" width="20" height="20">
+            <circle cx="12" cy="12" r="${R}" class="ring-bg"/>
+            <circle cx="12" cy="12" r="${R}" class="ring-fg"
+              stroke-dasharray="${circ}" stroke-dashoffset="${offset}"
+              style="stroke:${tier.color}"/>
+          </svg>
+          <div class="lb-avatar" style="background:${avatarColor}">${name[0]}</div>
+        </div>
+        <div class="lb-name" style="color:${tier.color}">${prefix}${escHtml(name)}</div>
+        <div class="lb-tier" style="color:${tier.color};background:${tier.bg}">${tier.name}</div>
+        <div class="lb-score">${p.exp}经验</div>
+      </div>
+    `;
+  }).join('');
+  document.getElementById('player-count').textContent=`参与 ${sorted.length} 人`;
+}
+
+function hueFromName(name){
+  let h=0;for(let i=0;i<name.length;i++)h=(h+name.charCodeAt(i)*7)%360;
+  return `hsl(${h},60%,35%)`;
+}
+
+function escHtml(s){
+  const d=document.createElement('div');d.textContent=s;return d.innerHTML;
+}
+
+function showToast(msg, type){
+  const t=document.createElement('div');
+  t.className='toast '+type;
+  t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),3000);
+}
+
+// ============================================================
+//  PLAYER ANSWER
+// ============================================================
+let simCache = new Map();
+
+async function semanticSimilarity(text, answer) {
+  const key = text + '||' + answer;
+  if (simCache.has(key)) return simCache.get(key);
+  try {
+    const r = await fetch('/similarity', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ guess: text, answer: answer })
+    });
+    const d = await r.json();
+    if (d.similarity !== undefined) {
+      // Convert 0-1 to 0-100, cap at 99 for non-exact
+      const s = Math.round(d.similarity);
+      const result = text.trim() === answer.trim() ? 100 : Math.min(99, Math.max(0, s));
+      simCache.set(key, result);
+      return result;
+    }
+  } catch(e) { /* fallback to local */ }
+  return null;
+}
+
+async function playerAnswer(name, text, isReal){
+  if(!state.isRunning||!state.question) return;
+  const text2=text.trim();
+  if(!text2) return;
+  const ans=state.question.answer;
+
+  // 先算本地字符相似度（用于模拟玩家/离线回退）
+  const localPct = charSimilarity(text2, ans);
+  // 真实玩家且桥接通时尝试语义相似度
+  let pct = localPct;
+  if (isReal && bridgeConnected) {
+    const sem = await semanticSimilarity(text2, ans);
+    if (sem !== null) pct = sem;
+  }
+
+  const isCorrect = text2 === ans || pct === 100;
+
+  state.messages.push({name,text:text2,pct,correct:isCorrect,ts:Date.now(),isReal});
+  if(!state.players[name])state.players[name]={exp:0,correct:0,total:0};
+  state.players[name].total++;
+  const timeRatio=state.timeLeft/state.maxTime;
+
+  if(isCorrect){
+    const expGain=Math.round(diffBase[state.question.diff] || 10) + Math.round(20*timeRatio);
+    state.players[name].exp+=expGain;
+    state.players[name].correct++;
+    state.answerCount++;
+    document.getElementById('total-answers').textContent=state.answerCount;
+    const tier=getTier(state.players[name].exp);
+    showCorrectModal(name, text2, expGain, tier);
+    spawnConfetti();
+    setTimeout(()=>nextQuestion(),2500);
+  }
+
+  addChatMessage(name, text2, pct, isCorrect, isReal);
+  const unique={};
+  for(const m of state.messages){
+    if(!unique[m.name]||unique[m.name].pct<m.pct) unique[m.name]=m;
+  }
+  state.topAnswers=Object.values(unique).filter(m=>!m.correct).sort((a,b)=>b.pct-a.pct).slice(0,3);
+  updateTopAnswers();
+  updateLeaderboard();
+}
+
+// ============================================================
+//  SIMULATION
+// ============================================================
+let simEnabled=true;
+function toggleSimulation(){
+  simEnabled=!simEnabled;
+  document.getElementById('sim-toggle').textContent=simEnabled?'⏸ 暂停模拟':'▶ 恢复模拟';
+  if(simEnabled) startSimulation();
+  else stopSimulation();
+}
+let simTimeout=null;
+function startSimulation(){
+  if(!state.isRunning||!simEnabled) return;
+  scheduleSimAnswer();
+}
+function stopSimulation(){
+  if(simTimeout){clearTimeout(simTimeout);simTimeout=null;}
+}
+function scheduleSimAnswer(){
+  if(!state.isRunning||!simEnabled) return;
+  const delays=[800,1200,1800,2500,3000,4000];
+  const delay=delays[Math.floor(Math.random()*delays.length)];
+  simTimeout=setTimeout(()=>{
+    if(!state.isRunning||!simEnabled) return;
+    const name=FAKE_NAMES[Math.floor(Math.random()*FAKE_NAMES.length)];
+    let text;
+    if(Math.random()<0.3&&state.question){
+      if(Math.random()<0.12){text=state.question.answer;}
+      else{text=FAKE_ANSWERS_POOL[Math.floor(Math.random()*FAKE_ANSWERS_POOL.length)];
+        if(Math.random()<0.2&&text.length>1){
+          const chars=text.split('');const idx=Math.floor(Math.random()*chars.length);chars[idx]='●';text=chars.join('');
+        }
+      }
+    } else {
+      text=FAKE_ANSWERS_POOL[Math.floor(Math.random()*FAKE_ANSWERS_POOL.length)];
+    }
+    playerAnswer(name, text, false);
+    scheduleSimAnswer();
+  },delay);
+}
+
+// ============================================================
+//  GIFT (manual trigger for testing)
+// ============================================================
+function triggerGift(type){
+  if(!state.isRunning||!state.question){alert('游戏未开始');return;}
+  const gifter=FAKE_NAMES[Math.floor(Math.random()*FAKE_NAMES.length)];
+  const giftNames={pop:'📢 人气票',beer:'🍺 啤酒',lollipop:'🍭 棒棒糖',bunny:'🐰 比心兔兔'};
+  handleRealGift(gifter, giftNames[type], type);
+}
+
+// ============================================================
+//  TEXT-TO-SPEECH
+// ============================================================
+let voiceEnabled = true;
+
+function toggleVoice() {
+  voiceEnabled = !voiceEnabled;
+  document.getElementById('voice-toggle').textContent = voiceEnabled ? '🔊 语音' : '🔇 静音';
+  if (voiceEnabled) speak('语音已开启');
+}
+
+let speechQueue = [];
+let isSpeaking = false;
+let audioCtx = null;
+
+// 监听第一次用户交互来解锁音频
+function unlockAudio() {
+  if (audioCtx && audioCtx.state !== 'suspended') return;
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  } catch(e) {}
+}
+document.addEventListener('click', unlockAudio, { once: true });
+document.addEventListener('touchstart', unlockAudio, { once: true });
+// 立即尝试创建（可能在 OBS 中直接可用）
+unlockAudio();
+
+function speak(text) {
+  if (!voiceEnabled) return;
+  speechQueue.push(text);
+  processSpeechQueue();
+}
+
+function processSpeechQueue() {
+  if (isSpeaking || speechQueue.length === 0) return;
+  isSpeaking = true;
+  const text = speechQueue.shift();
+  fetch('/tts', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ text: text })
+  })
+  .then(r => {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.blob();
+  })
+  .then(async blob => {
+    // 用 Web Audio API 播放，绕过 autoplay 限制
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') await audioCtx.resume();
+      const buf = await audioCtx.decodeAudioData(await blob.arrayBuffer());
+      const src = audioCtx.createBufferSource();
+      src.buffer = buf;
+      const gain = audioCtx.createGain();
+      gain.gain.value = 0.8;
+      src.connect(gain);
+      gain.connect(audioCtx.destination);
+      src.start(0);
+      src.onended = () => {
+        isSpeaking = false;
+        processSpeechQueue();
+      };
+    } catch(e) {
+      console.log('TTS audio error:', e.message);
+      isSpeaking = false;
+      processSpeechQueue();
+    }
+  })
+  .catch(e => {
+    console.log('TTS fetch error:', e.message);
+    isSpeaking = false;
+    processSpeechQueue();
+  });
+}
+
+// ============================================================
+//  MODALS
+// ============================================================
+function showCorrectModal(name, answer, exp, tier){
+  speak(`恭喜 ${name} 回答正确，答案${answer}，获得${exp}经验`);
+  const m=document.getElementById('modal-correct');
+  document.getElementById('modal-correct-title').textContent='🎉 恭喜答对了！';
+  document.getElementById('modal-correct-desc').textContent=`${name} 答对了！答案是「${answer}」`;
+  document.getElementById('modal-correct-exp').textContent=`+${exp} 经验`;
+  document.getElementById('modal-correct-tier').textContent=`🏅 ${tier.name} ${state.players[name].exp}分`;
+  document.getElementById('modal-correct-tier').style.color=tier.color;
+  document.getElementById('modal-correct-tier').style.background=tier.bg;
+  m.classList.add('active');
+  setTimeout(()=>closeModal('modal-correct'),3500);
+}
+function showGiftModal(name, gift, hint){
+  speak(`感谢 ${name} 送出${gift}`);
+  const m=document.getElementById('modal-gift');
+  document.getElementById('modal-gift-desc').textContent=`感谢 ${name} 送出的 ${gift}！`;
+  document.getElementById('modal-gift-hint').textContent='💡 '+hint;
+  m.classList.add('active');
+  setTimeout(()=>closeModal('modal-gift'),4000);
+}
+function showTimeoutModal(answer){
+  speak(`很遗憾没有人答对，答案是${answer}`);
+  const m=document.getElementById('modal-timeout');
+  document.getElementById('modal-timeout-desc').textContent='⏰ 很遗憾没有人答对，题目答案是：';
+  document.getElementById('modal-timeout-answer').textContent='「'+answer+'」';
+  m.classList.add('active');
+}
+function closeModal(id){
+  document.getElementById(id).classList.remove('active');
+}
+
+// ============================================================
+//  CONFETTI
+// ============================================================
+function spawnConfetti(){
+  const colors=['#fe2c55','#25f4ee','#ffd700','#7b2ff7','#ff6b35','#00ff88'];
+  for(let i=0;i<30;i++){
+    const piece=document.createElement('div');
+    piece.className='confetti-piece';
+    piece.style.left=Math.random()*100+'%';
+    piece.style.top=(40+Math.random()*40)+'%';
+    piece.style.background=colors[Math.floor(Math.random()*colors.length)];
+    piece.style.animationDuration=(0.8+Math.random()*1.2)+'s';
+    piece.style.animationDelay=(Math.random()*0.3)+'s';
+    piece.style.width=(4+Math.random()*6)+'px';
+    piece.style.height=(4+Math.random()*6)+'px';
+    piece.style.borderRadius=Math.random()>0.5?'50%':'2px';
+    document.body.appendChild(piece);
+    setTimeout(()=>piece.remove(),2500);
+  }
+}
+
+// ============================================================
+//  NEXT QUESTION
+// ============================================================
+function nextQuestion(){
+  closeModal('modal-correct');
+  closeModal('modal-gift');
+  closeModal('modal-timeout');
+  const oldAns=state.question?state.question.answer:null;
+  const q=pickQuestion();
+  speak(`下一题${q.category}`);
+  if(oldAns) updateLastAnswer(oldAns);
+  updateQuestionUI();
+  document.getElementById('chat-messages').innerHTML='<div class="no-chat">🔄 切换题目，等待玩家弹幕...</div>';
+  document.getElementById('top-answers').innerHTML='';
+  updateLeaderboard();
+}
+
+// ============================================================
+//  TIMER
+// ============================================================
+function startTimer(){
+  if(state.timer)clearInterval(state.timer);
+  state.timer=setInterval(()=>{
+    state.timeLeft--;
+    updateTimerUI();
+    if(state.timeLeft<=0){
+      clearInterval(state.timer);state.timer=null;
+      if(state.question){showTimeoutModal(state.question.answer);setTimeout(()=>nextQuestion(),3000);}
+    }
+  },1000);
+}
+
+// ============================================================
+//  START GAME
+// ============================================================
+function startGame(){
+  if(state.isRunning) return;
+  state.isRunning=true;
+  state.questionIndex=Math.floor(Math.random()*QUESTION_BANK.length);
+  document.getElementById('online-count').textContent='0';
+  document.getElementById('total-answers').textContent='0';
+  pickQuestion();
+  updateQuestionUI();
+  speak(`游戏开始第一题${state.question.category}`);
+  document.getElementById('chat-messages').innerHTML='<div class="no-chat">🎮 游戏已开始，等待玩家弹幕...</div>';
+  document.getElementById('top-answers').innerHTML='';
+  updateLeaderboard();
+  startTimer();
+  if(simEnabled) startSimulation();
+}
+
+// ============================================================
+//  INIT
+// ============================================================
+document.addEventListener('DOMContentLoaded',()=>{
+  // Try auto-connect to bridge
+  setTimeout(()=>connectToBridge(),500);
+  // Start game
+  startGame();
+});
+</script>
+</body>
+</html>
