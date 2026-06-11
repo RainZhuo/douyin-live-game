@@ -1033,12 +1033,15 @@ function toggleSimulation(){
   else stopSimulation();
 }
 let simTimeout=null;
+let simGiftTimeout=null;
 function startSimulation(){
   if(!state.isRunning||!simEnabled) return;
   scheduleSimAnswer();
+  scheduleSimGift();
 }
 function stopSimulation(){
   if(simTimeout){clearTimeout(simTimeout);simTimeout=null;}
+  if(simGiftTimeout){clearTimeout(simGiftTimeout);simGiftTimeout=null;}
 }
 function scheduleSimAnswer(){
   if(!state.isRunning||!simEnabled) return;
@@ -1060,6 +1063,28 @@ function scheduleSimAnswer(){
     }
     playerAnswer(name, text, false);
     scheduleSimAnswer();
+  },delay);
+}
+
+// 模拟观众送礼物
+function scheduleSimGift(){
+  if(!state.isRunning||!simEnabled) return;
+  const delays=[15000,18000,22000,25000,30000];
+  const delay=delays[Math.floor(Math.random()*delays.length)];
+  simGiftTimeout=setTimeout(()=>{
+    if(!state.isRunning||!simEnabled||!state.question) return;
+    const name=FAKE_NAMES[Math.floor(Math.random()*FAKE_NAMES.length)];
+    // 概率权重：人气票40% 啤酒30% 棒棒糖20% 比心兔兔10%
+    const r=Math.random();
+    let type='pop';
+    if(r<0.4) type='pop';
+    else if(r<0.7) type='beer';
+    else if(r<0.9) type='lollipop';
+    else type='bunny';
+    const giftNames={pop:'📢 人气票',beer:'🍺 啤酒',lollipop:'🍭 棒棒糖',bunny:'🐰 比心兔兔'};
+    console.log('🎁 [模拟]', name, '送出', giftNames[type]);
+    handleRealGift(name, giftNames[type], type);
+    scheduleSimGift();
   },delay);
 }
 
