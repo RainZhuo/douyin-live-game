@@ -36,6 +36,104 @@ const CONFIG = {
 };
 
 // ============================================================
+// 抖音开放平台
+// ============================================================
+const DY_APP_ID = process.env.DY_APP_ID || '';
+const DY_APP_SECRET = process.env.DY_APP_SECRET || '';
+let dyAccessToken = '';
+let dyTokenExpires = 0;
+
+async function getDyToken() {
+  if (dyAccessToken && Date.now() < dyTokenExpires) return dyAccessToken;
+  if (!DY_APP_ID || !DY_APP_SECRET) return null;
+  try {
+    const r = await fetch('https://developer.toutiao.com/api/apps/v2/token', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        app_id: DY_APP_ID,
+        app_secret: DY_APP_SECRET,
+        grant_type: 'client_credential'
+      })
+    });
+    const d = await r.json();
+    if (d.data?.access_token) {
+      dyAccessToken = d.data.access_token;
+      dyTokenExpires = Date.now() + (d.data.expires_in || 7200) * 1000;
+      console.log('✅ 抖音 Token 获取成功');
+      return dyAccessToken;
+    }
+    console.error('⚠️ 抖音 Token 获取失败:', d.message || JSON.stringify(d));
+    return null;
+  } catch (err) {
+    console.error('⚠️ 抖音 Token 请求失败:', err.message);
+    return null;
+  }
+}
+
+// 从抖音 OpenAPI 获取题库
+let questionCache = [];
+let questionCacheTime = 0;
+
+async function fetchDyQuestions(difficulty, count) {
+  const token = await getDyToken();
+  if (!token) {
+    if (!DY_APP_ID) console.log('⚠️ 未配置 DY_APP_ID，使用本地题库');
+    return null;
+  }
+  try {
+    const params = new URLSearchParams();
+    if (difficulty) params.set('difficulty', difficulty);
+    params.set('count', String(count || 50));
+    params.set('type', '1'); // 1=选择题
+
+    const url = `https://webcast.bytedance.com/api/quiz/get?${params}`;
+    console.log(`📚 正在获取抖音题库 (diff=${difficulty || '随机'}, count=${count || 50})`);
+    
+    const r = await fetch(url, {
+      headers: {'Authorization': `Bearer ${token}`}
+    });
+    const d = await r.json();
+    
+    if (d.data?.list?.length) {
+      questionCache = d.data.list.map(q => ({
+        answer: q.answer || q.correct_option,
+        category: q.category || '通用',
+        clue: q.question || '',
+        diff: Math.min(3, Math.ceil((q.difficulty || 3) / 2)), // 1-6 映射到 1-3
+        source: 'douyin',
+      }));
+      questionCacheTime = Date.now();
+      console.log(`✅ 获取到 ${questionCache.length} 道题`);
+      return questionCache;
+    }
+    console.error('⚠️ 题库接口返回空:', JSON.stringify(d).slice(0, 200));
+    return null;
+  } catch (err) {
+    console.error('⚠️ 题库请求失败:', err.message);
+    return null;
+  }
+}
+
+// 提供题库给前端
+app.get('/api/questions', async (req, res) => {
+  const diff = req.query.difficulty ? parseInt(req.query.difficulty) : 0;
+  const count = req.query.count ? parseInt(req.query.count) : 50;
+  
+  // 缓存10分钟
+  if (questionCache.length && Date.now() - questionCacheTime < 600000) {
+    return res.json({ questions: questionCache, source: 'cache' });
+  }
+  
+  const questions = await fetchDyQuestions(diff, count);
+  if (questions) {
+    res.json({ questions, source: 'douyin' });
+  } else {
+    res.json({ questions: [], source: null });
+  }
+});
+
+// ============================================================
 // 命令行参数 - 直播间ID
 // ============================================================
 const LIVE_ID = process.argv[2];
