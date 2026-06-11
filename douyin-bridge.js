@@ -321,16 +321,21 @@ async function connectToDouyin() {
   console.log(`   房间ID: ${roomId}\n`);
 
   try {
+    console.log('📦 加载 DyCast 模块...');
     const { DyCast } = await import('@dycast/core');
-    
+    console.log('✅ DyCast 模块加载成功');
+
+    console.log('🔧 创建 DyCast 实例...');
     const dc = new DyCast(roomId);
-    
+    console.log('✅ DyCast 实例创建成功');
+
     dc.on('open', (ev, info) => {
-      console.log(`📡 直播间: ${info?.title || '未知'}`);
-      console.log(`   主播: ${info?.nickname || '未知'}`);
-      console.log(`   状态: ${info?.status === 2 ? '直播中' : '其他'}`);
-      console.log(`\n✅ 成功连接到抖音直播间！`);
-      console.log(`   弹幕和礼物消息将实时转发到游戏\n`);
+      console.log('\n========== 直播间连接成功 ==========');
+      console.log(`  标题: ${info?.title || '未知'}`);
+      console.log(`  主播: ${info?.nickname || '未知'}`);
+      console.log(`  状态码: ${info?.status} (2=直播中)`);
+      console.log(`  房间ID: ${info?.roomId || roomId}`);
+      console.log('=====================================\n');
     });
 
     dc.on('message', (messages) => {
@@ -349,14 +354,13 @@ async function connectToDouyin() {
             case 'WebcastGiftMessage': {
               const name = msg.user?.name || '未知';
               const giftName = msg.gift?.name || '未知礼物';
-              const diamondCount = msg.gift?.price || 0;
-              const repeatCount = msg.gift?.count || 1;
-              console.log(`🎁 ${name} 送出 ${giftName} x${repeatCount}`);
+              console.log(`🎁 ${name} 送出 ${giftName}`);
               broadcastToGame({
                 type: 'gift', name, giftName,
                 giftType: matchGiftType(giftName),
                 giftId: msg.gift?.id || '',
-                diamondCount, repeatCount,
+                diamondCount: msg.gift?.price || 0,
+                repeatCount: msg.gift?.count || 1,
               });
               break;
             }
@@ -375,6 +379,12 @@ async function connectToDouyin() {
               broadcastToGame({ type: 'online', count: parseInt(online) || 0 });
               break;
             }
+            default: {
+              // 打印未知消息类型用于调试
+              if (!msg.method?.startsWith('WebcastRoom')) {
+                console.log(`📨 未处理消息类型: ${msg.method}`);
+              }
+            }
           }
         } catch (err) {
           console.error('处理消息出错:', err.message);
@@ -383,24 +393,34 @@ async function connectToDouyin() {
     });
 
     dc.on('error', (e) => {
-      console.error('⚠️ 直播间连接错误:', e.message);
+      console.error('\n❌ 直播间连接错误:');
+      console.error(`  名称: ${e.name}`);
+      console.error(`  消息: ${e.message}`);
+      console.error(`  堆栈: ${e.stack?.split('\n').slice(0,3).join('\n    ')}`);
     });
 
     dc.on('close', (code, reason) => {
-      console.log(`🔌 直播间连接已关闭 (${code}: ${reason})`);
+      console.log(`\n🔌 直播间连接已关闭`);
+      console.log(`  关闭码: ${code}`);
+      console.log(`  原因: ${reason}`);
     });
 
+    console.log('🔄 正在调用 dc.connect()...');
     await dc.connect();
+    console.log('✅ dc.connect() 完成');
+
     return dc;
 
   } catch (err) {
-    console.error(`\n❌ 连接抖音直播间失败:`, err.message);
-    console.error(`   可能的原因:`);
-    console.error(`   1. 直播间ID不正确`);
-    console.error(`   2. 直播间未开播`);
-    console.error(`   3. 网络问题`);
-    console.error(`   4. 抖音接口变动`);
-    console.error(`\n   请在开播后重试，或检查直播间ID是否正确\n`);
+    console.error(`\n❌ 连接抖音直播间失败:`);
+    console.error(`  名称: ${err.name}`);
+    console.error(`  消息: ${err.message}`);
+    console.error(`  堆栈: ${err.stack?.split('\n').slice(0,5).join('\n    ')}`);
+    console.error(`\n可能的原因:`);
+    console.error(`  1. 直播间ID不正确`);
+    console.error(`  2. 直播间未开播`);
+    console.error(`  3. 网络问题`);
+    console.error(`  4. 抖音接口变动`);
     return null;
   }
 }
@@ -414,6 +434,8 @@ console.log('║    🎮 抖音直播间互动游戏桥接服务     ║');
 console.log('╚══════════════════════════════════════╝');
 console.log('');
 
+console.time('连接耗时');
+
 connectToDouyin().then(ws => {
   if (!ws) {
     // 连接失败 - 服务仍在运行，可以手动重连
@@ -421,6 +443,7 @@ connectToDouyin().then(ws => {
     console.log('   游戏UI可访问 http://localhost:' + CONFIG.HTTP_PORT);
     console.log('   但只有模拟玩家在线，没有真实弹幕');
   }
+  console.timeEnd('连接耗时');
 
   // 后台加载语义模型（不影响启动速度）
   loadSimilarityModel();
