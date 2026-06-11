@@ -224,20 +224,35 @@ async function loadSimilarityModel() {
   if (similarityLoaded) return true;
   if (similarityLoading) return false;
   similarityLoading = true;
-  try {
-    const { pipeline } = require('@xenova/transformers');
-    similarityPipe = await pipeline('feature-extraction', SIM_MODEL);
-    similarityLoaded = true;
-    console.log('🧠 语义模型已加载');
-    return true;
-  } catch (err) {
-    console.error('⚠️ 语义模型加载失败（不影响基础功能）:', err.message);
-    console.log('   将使用本地字符匹配作为回退');
-    similarityPipe = null;
-    return false;
-  } finally {
-    similarityLoading = false;
+  
+  // 尝试多个镜像源下载模型
+  const mirrors = [
+    { host: 'huggingface.co', label: 'HuggingFace' },
+    { host: 'hf-mirror.com', label: 'HF Mirror' },
+  ];
+  
+  for (const mirror of mirrors) {
+    try {
+      const { pipeline, env } = require('@xenova/transformers');
+      env.remoteHost = `https://${mirror.host}`;
+      env.remotePathTemplate = '{model}/resolve/{revision}/{file}';
+      similarityPipe = await pipeline('feature-extraction', SIM_MODEL);
+      similarityLoaded = true;
+      similarityLoading = false;
+      console.log(`🧠 语义模型已加载（${mirror.label}）`);
+      return true;
+    } catch (err) {
+      console.warn(`⚠️ ${mirror.label} 加载失败:`, err.message);
+    }
   }
+  
+  console.error('⚠️ 语义模型所有镜像均加载失败（不影响基础功能）');
+  console.log('   将使用本地字符匹配作为回退');
+  console.log('   如需手动下载，请运行:');
+  console.log(`   npx xenova-transformers-download ${SIM_MODEL}`);
+  similarityPipe = null;
+  similarityLoading = false;
+  return false;
 }
 
 async function getEmbedding(text) {
