@@ -321,117 +321,77 @@ async function connectToDouyin() {
   console.log(`   房间ID: ${roomId}\n`);
 
   try {
-    // 动态导入 ESM 模块
-    const liveParser = await import('@liou666/live-parser-core');
-
-    // 处理解析结果
-    const parseResult = await liveParser.parseLiveUrl(roomId);
-    console.log(`📡 直播间信息:`);
-    console.log(`   标题: ${parseResult.liveRoomTitle || '未知'}`);
-    console.log(`   主播: ${parseResult.nickName || '未知'}`);
-    console.log(`   在线: ${parseResult.onlineUserCount || '0'} 人`);
-    console.log(`   状态: ${parseResult.status}`);
-
-    // 连接 WebSocket
-    const ws = await liveParser.startWebsocket(roomId, {
-      handleChatMessage: (data) => {
-        try {
-          const nickName = data?.user?.nickName || '未知';
-          const content = data?.content || '';
-          if (!content) return;
-
-          console.log(`💬 ${nickName}: ${content}`);
-
-          broadcastToGame({
-            type: 'chat',
-            name: nickName,
-            text: content,
-          });
-        } catch (err) {
-          console.error('处理弹幕消息出错:', err.message);
-        }
-      },
-
-      handleGiftMessage: (data) => {
-        try {
-          const nickName = data?.user?.nickName || '未知';
-          const giftName = data?.gift?.name || '未知礼物';
-          const diamondCount = data?.gift?.diamondCount || 0;
-          const repeatCount = data?.repeatCount || 1;
-          const giftId = data?.gift?.id || '';
-
-          console.log(`🎁 ${nickName} 送出 ${giftName} x${repeatCount} (${diamondCount}钻石)`);
-
-          // 匹配游戏内触发类型
-          const giftType = matchGiftType(giftName);
-
-          broadcastToGame({
-            type: 'gift',
-            name: nickName,
-            giftName: giftName,
-            giftType: giftType,      // 'pop' | 'beer' | 'lollipop' | 'bunny' | null
-            giftId: giftId,
-            diamondCount: diamondCount,
-            repeatCount: repeatCount,
-          });
-        } catch (err) {
-          console.error('处理礼物消息出错:', err.message);
-        }
-      },
-
-      handleMemberMessage: (data) => {
-        try {
-          const nickName = data?.user?.nickName || '未知';
-          console.log(`👋 ${nickName} 进入直播间`);
-
-          broadcastToGame({
-            type: 'enter',
-            name: nickName,
-          });
-        } catch (err) {
-          // 忽略进入消息错误
-        }
-      },
-
-      handleLikeMessage: (data) => {
-        try {
-          const nickName = data?.user?.nickName || '未知';
-          const count = data?.count?.low || 1;
-          console.log(`❤️ ${nickName} 点赞 x${count}`);
-
-          broadcastToGame({
-            type: 'like',
-            name: nickName,
-            count: count,
-          });
-        } catch (err) {
-          // 忽略点赞错误
-        }
-      },
-
-      handleRoomUserSeqMessage: (data) => {
-        try {
-          const online = data?.totalUser || data?.total || '0';
-          console.log(`📊 在线人数: ${online}`);
-
-          broadcastToGame({
-            type: 'online',
-            count: parseInt(online) || 0,
-          });
-        } catch (err) {
-          // 忽略人数错误
-        }
-      },
-
-      handleUnknowMessage: (method, buffer) => {
-        // 忽略未知消息
-      },
+    const { DyCast } = await import('@dycast/core');
+    
+    const dc = new DyCast(roomId);
+    
+    dc.on('open', (ev, info) => {
+      console.log(`📡 直播间: ${info?.title || '未知'}`);
+      console.log(`   主播: ${info?.nickname || '未知'}`);
+      console.log(`   状态: ${info?.status === 2 ? '直播中' : '其他'}`);
+      console.log(`\n✅ 成功连接到抖音直播间！`);
+      console.log(`   弹幕和礼物消息将实时转发到游戏\n`);
     });
 
-    console.log(`\n✅ 成功连接到抖音直播间！`);
-    console.log(`   弹幕和礼物消息将实时转发到游戏\n`);
+    dc.on('message', (messages) => {
+      if (!messages || !messages.length) return;
+      for (const msg of messages) {
+        try {
+          switch (msg.method) {
+            case 'WebcastChatMessage': {
+              const name = msg.user?.name || '未知';
+              const content = msg.content || '';
+              if (!content) break;
+              console.log(`💬 ${name}: ${content}`);
+              broadcastToGame({ type: 'chat', name, text: content });
+              break;
+            }
+            case 'WebcastGiftMessage': {
+              const name = msg.user?.name || '未知';
+              const giftName = msg.gift?.name || '未知礼物';
+              const diamondCount = msg.gift?.price || 0;
+              const repeatCount = msg.gift?.count || 1;
+              console.log(`🎁 ${name} 送出 ${giftName} x${repeatCount}`);
+              broadcastToGame({
+                type: 'gift', name, giftName,
+                giftType: matchGiftType(giftName),
+                giftId: msg.gift?.id || '',
+                diamondCount, repeatCount,
+              });
+              break;
+            }
+            case 'WebcastMemberMessage': {
+              const name = msg.user?.name || '未知';
+              broadcastToGame({ type: 'enter', name });
+              break;
+            }
+            case 'WebcastLikeMessage': {
+              const name = msg.user?.name || '未知';
+              broadcastToGame({ type: 'like', name, count: 1 });
+              break;
+            }
+            case 'WebcastRoomUserSeqMessage': {
+              const online = msg.room?.audienceCount || 0;
+              broadcastToGame({ type: 'online', count: parseInt(online) || 0 });
+              break;
+            }
+          }
+        } catch (err) {
+          console.error('处理消息出错:', err.message);
+        }
+      }
+    });
 
-    return ws;
+    dc.on('error', (e) => {
+      console.error('⚠️ 直播间连接错误:', e.message);
+    });
+
+    dc.on('close', (code, reason) => {
+      console.log(`🔌 直播间连接已关闭 (${code}: ${reason})`);
+    });
+
+    await dc.connect();
+    return dc;
 
   } catch (err) {
     console.error(`\n❌ 连接抖音直播间失败:`, err.message);
