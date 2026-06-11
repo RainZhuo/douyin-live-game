@@ -24,6 +24,8 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { execSync } = require('child_process');
+const isWin = process.platform === 'win32';
+const PYTHON = isWin ? 'python' : 'python3';
 
 // ============================================================
 // 配置
@@ -176,7 +178,7 @@ app.post('/tts', express.json(), async (req, res) => {
   try {
     if (!fs.existsSync(cacheFile)) {
       execSync(
-        `python3 -m edge_tts --voice "${voice}" --text "${text.replace(/"/g, '\\"')}" --write-media "${cacheFile}"`,
+        `${PYTHON} -m edge_tts --voice "${voice}" --text "${text.replace(/"/g, '\\"')}" --write-media "${cacheFile}"`,
         { timeout: 15000, stdio: 'pipe' }
       );
     }

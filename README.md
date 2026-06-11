@@ -35,29 +35,59 @@
 
 ### 2. 启动服务
 
+#### macOS / Linux
 ```bash
 cd /Users/zhuo/douyin-game
 ./start.sh <直播间ID>
 ```
 
-或者直接：
-
+或直接：
 ```bash
 cd /Users/zhuo/douyin-game
 node douyin-bridge.js <直播间ID>
 ```
 
-### 3. 在 OBS 中添加
+#### Windows
+```batch
+cd 项目目录
+start.bat <直播间ID>
+```
+
+或直接：
+```batch
+cd 项目目录
+node douyin-bridge.js <直播间ID>
+```
+
+### 3. 安装依赖（首次运行）
+
+#### macOS / Linux
+```bash
+# Node.js 依赖
+npm install
+
+# Python 语音引擎
+pip3 install edge-tts
+```
+
+#### Windows
+```batch
+:: Node.js 依赖
+npm install
+
+:: Python 语音引擎
+pip install edge-tts
+```
+
+> Windows 启动脚本 (`start.bat`) 会自动检测并安装缺失的依赖。
+
+### 4. 在 OBS 中添加
 
 添加「浏览器源」：
 - URL: `http://localhost:3000`
-- 宽度: 460
+- 宽度: 500
 - 高度: 800
-- 勾选「在源可见时控制音频」(如果有音效)
-
-### 4. 开播
-
-开播后，桥接服务会自动连接到你的抖音直播间，弹幕和礼物消息会实时转发到游戏界面。
+- 勾选「控制音频」
 
 ## 文件结构
 
