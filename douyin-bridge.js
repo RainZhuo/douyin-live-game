@@ -215,21 +215,43 @@ app.post('/tts/voice', express.json(), (req, res) => {
 // 语义相似度 - 使用 BGE-small-zh 嵌入模型
 // ============================================================
 let similarityPipe = null;
+let similarityLoading = false;
+let similarityLoaded = false;
 let embCache = new Map(); // text -> embedding array
 const SIM_MODEL = 'Xenova/bge-small-zh-v1.5';
 
-async function getEmbedding(text) {
-  const key = text.trim();
-  if (embCache.has(key)) return embCache.get(key);
-  if (!similarityPipe) {
+async function loadSimilarityModel() {
+  if (similarityLoaded) return true;
+  if (similarityLoading) return false;
+  similarityLoading = true;
+  try {
     const { pipeline } = require('@xenova/transformers');
     similarityPipe = await pipeline('feature-extraction', SIM_MODEL);
+    similarityLoaded = true;
     console.log('🧠 语义模型已加载');
+    return true;
+  } catch (err) {
+    console.error('⚠️ 语义模型加载失败（不影响基础功能）:', err.message);
+    console.log('   将使用本地字符匹配作为回退');
+    similarityPipe = null;
+    return false;
+  } finally {
+    similarityLoading = false;
   }
-  const result = await similarityPipe(key, { pooling: 'mean', normalize: true });
-  const vec = Array.from(result.data);
-  embCache.set(key, vec);
-  return vec;
+}
+
+async function getEmbedding(text) {
+  if (!similarityLoaded || !similarityPipe) return null;
+  const key = text.trim();
+  if (embCache.has(key)) return embCache.get(key);
+  try {
+    const result = await similarityPipe(key, { pooling: 'mean', normalize: true });
+    const vec = Array.from(result.data);
+    embCache.set(key, vec);
+    return vec;
+  } catch (e) {
+    return null;
+  }
 }
 
 function cosineSim(a, b) {
@@ -242,13 +264,22 @@ app.post('/similarity', express.json(), async (req, res) => {
   const guess = req.body?.guess?.trim();
   const answer = req.body?.answer?.trim();
   if (!guess || !answer) return res.status(400).json({ error: '需要 guess 和 answer 参数' });
+  
+  // 模型未就绪时返回 null，客户端会用字符匹配回退
+  if (!similarityLoaded) {
+    return res.json({ similarity: null, guess, answer, fallback: true });
+  }
+  
   try {
     const [v1, v2] = await Promise.all([getEmbedding(guess), getEmbedding(answer)]);
+    if (!v1 || !v2) {
+      return res.json({ similarity: null, guess, answer, fallback: true });
+    }
     const sim = cosineSim(v1, v2);
     res.json({ similarity: Math.round(sim * 1000) / 10, guess, answer });
   } catch (err) {
     console.error('相似度计算失败:', err.message);
-    res.status(500).json({ error: err.message });
+    res.json({ similarity: null, guess, answer, fallback: true });
   }
 });
 
@@ -276,7 +307,7 @@ async function connectToDouyin() {
 
   try {
     // 动态导入 ESM 模块
-    const liveParser = require('@liou666/live-parser-core');
+    const liveParser = await import('@liou666/live-parser-core');
 
     // 处理解析结果
     const parseResult = await liveParser.parseLiveUrl(roomId);
@@ -415,6 +446,9 @@ connectToDouyin().then(ws => {
     console.log('   游戏UI可访问 http://localhost:' + CONFIG.HTTP_PORT);
     console.log('   但只有模拟玩家在线，没有真实弹幕');
   }
+
+  // 后台加载语义模型（不影响启动速度）
+  loadSimilarityModel();
 
   // 优雅退出
   process.on('SIGINT', () => {
