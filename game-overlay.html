@@ -580,7 +580,7 @@ function handleRealGift(name, giftName, giftType) {
 // ============================================================
 //  QUESTION BANK
 // ============================================================
-const QUESTION_BANK = [
+let QUESTION_BANK = [
   // ★☆☆ 简单（1-2字，大众常识）
   {answer:'李白',category:'历史人物',clue:'唐代著名浪漫主义诗人，被称为"诗仙"',diff:1},
   {answer:'杜甫',category:'历史人物',clue:'唐代现实主义诗人，被称为"诗圣"',diff:1},
@@ -643,6 +643,19 @@ const QUESTION_BANK = [
   {answer:'对牛弹琴',category:'成语',clue:'说话不看对象',diff:3},
   {answer:'刻舟求剑',category:'成语',clue:'墨守成规，不知道变通',diff:3},
 ];
+// 从服务端加载题库（抖音 OpenAPI），未配置时用本地题库
+async function loadQuestionsFromServer() {
+  try {
+    const r = await fetch('/api/questions');
+    const d = await r.json();
+    if (d.questions && d.questions.length >= 10) {
+      QUESTION_BANK = d.questions;
+      console.log(`📚 已加载 ${QUESTION_BANK.length} 道题（来源: ${d.source}）`);
+      return true;
+    }
+  } catch(e) { /* 服务不可用时用本地题库 */ }
+  return false;
+}
 
 // ============================================================
 //  TIER SYSTEM
@@ -1284,7 +1297,9 @@ function startGame(){
 // ============================================================
 //  INIT
 // ============================================================
-document.addEventListener('DOMContentLoaded',()=>{
+document.addEventListener('DOMContentLoaded',async ()=>{
+  // 先尝试加载抖音官方题库
+  await loadQuestionsFromServer();
   // Try auto-connect to bridge
   setTimeout(()=>connectToBridge(),500);
   // Start game
